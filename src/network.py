@@ -6,37 +6,28 @@ import copy
 # PyTorch & Pytorch Lightning
 from lightning.pytorch import LightningModule
 from lightning.pytorch.loggers.wandb import WandbLogger
-from torch import nn
 from torchvision import models
 from torchvision.models.alexnet import AlexNet
 import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.nn.init import trunc_normal_
+
 
 # Custom packages
-from src.metric import MyAccuracy
+from src.metric import MyF1Score, MyAccuracy
 import src.config as cfg
 from src.util import show_setting
+from src.networks.MyAlexNet import MyAlexNet
+from src.networks.MyConvNeXtV2 import MyConvNeXtV2
+from src.networks.MyEfficientNetL2 import MyEfficientNetL2, MyEfficientNetL2_dropout
+
 
 
 # [TODO: Optional] Rewrite this class if you want
-class MyNetwork(AlexNet):
-    def __init__(self):
-        super().__init__()
-
-        # [TODO] Modify feature extractor part in AlexNet
-
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # [TODO: Optional] Modify this as well if you want
-        x = self.features(x)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
-
-
 class SimpleClassifier(LightningModule):
     def __init__(self,
-                 model_name: str = 'resnet18',
+                 model_name: str,
                  num_classes: int = 200,
                  optimizer_params: Dict = dict(),
                  scheduler_params: Dict = dict(),
@@ -46,6 +37,14 @@ class SimpleClassifier(LightningModule):
         # Network
         if model_name == 'MyNetwork':
             self.model = MyNetwork()
+        elif model_name == 'MyAlexNet':
+            self.model = MyAlexNet()
+        elif model_name == 'MyConvNeXtV2':
+            self.model = MyConvNeXtV2()
+        elif model_name == 'MyEfficientNetL2':
+            self.model = MyEfficientNetL2()
+        elif model_name == 'MyEfficientNetL2_dropout':
+            self.model = MyEfficientNetL2_dropout()
         else:
             models_list = models.list_models()
             assert model_name in models_list, f'Unknown model name: {model_name}. Choose one from {", ".join(models_list)}'
@@ -55,6 +54,7 @@ class SimpleClassifier(LightningModule):
         self.loss_fn = nn.CrossEntropyLoss()
 
         # Metric
+        self.f1score = MyF1Score()
         self.accuracy = MyAccuracy()
 
         # Hyperparameters
@@ -78,15 +78,25 @@ class SimpleClassifier(LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss, scores, y = self._common_step(batch)
+        # print('scores',scores.shape,scores)
+        # print('y',y.shape,y)
+        f1 = self.f1score(scores, y)
         accuracy = self.accuracy(scores, y)
-        self.log_dict({'loss/train': loss, 'accuracy/train': accuracy},
+        # self.log_dict({'loss/train': loss, 'accuracy/train': accuracy},
+        #               on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log_dict({'loss/train': loss, 'f1score/tran': f1, 'accuracy/train': accuracy},
                       on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss, scores, y = self._common_step(batch)
+        # print('scores',scores.shape,scores)
+        # print('y',y.shape,y)
+        f1 = self.f1score(scores, y)
         accuracy = self.accuracy(scores, y)
-        self.log_dict({'loss/val': loss, 'accuracy/val': accuracy},
+        # self.log_dict({'loss/val': loss, 'accuracy/val': accuracy},
+        #               on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log_dict({'loss/val': loss, 'f1score/val': f1, 'accuracy/val': accuracy},
                       on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self._wandb_log_image(batch, batch_idx, scores, frequency = cfg.WANDB_IMG_LOG_FREQ)
 
