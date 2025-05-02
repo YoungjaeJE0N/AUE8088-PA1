@@ -32,8 +32,8 @@ IMAGE_STD           = [0.2302, 0.2265, 0.2262]
 # MODEL_NAME          = 'MyNetwork'
 # MODEL_NAME          = 'MyAlexNet'
 # MODEL_NAME          = 'MyConvNeXtV2'
-# MODEL_NAME          = 'MyEfficientNetL2'
-MODEL_NAME          = 'MyEfficientNetL2_dropout'
+MODEL_NAME          = 'MyEfficientNetL2'
+# MODEL_NAME          = 'MyEfficientNetL2_dropout'
 
 
 # Compute related
